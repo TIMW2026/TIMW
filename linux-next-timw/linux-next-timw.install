@@ -1,0 +1,8 @@
+post_install() {
+  kernel-install add-all
+  bootctl list
+}
+post_upgrade() {
+  kernel-install add-all
+  bootctl list
+}

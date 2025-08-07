@@ -1,0 +1,100 @@
+pkgname=('rust-git' 'rust-src-git')
+pkgver=1.90.0_2025.07.27
+pkgrel=1
+arch=(x86_64)
+depends=(bash curl gcc gcc-libs glibc libssh2 llvm-libs openssl zlib)
+makedepends=(clang cmake libffi lld llvm ninja perl python rustup)
+source=(https://static.rust-lang.org/dist/rustc-nightly-src.tar.xz)
+
+pkgver() {
+  cd rustc-nightly-src
+  ver="$(expr "$(cat version)" : '\(.*\)-nightly')"
+  date="$(expr "$(cat version)" : '.* \(.*\))')"
+  echo "${ver}_${date//\-/.}"
+}
+
+prepare() {
+  cd rustc-nightly-src
+  cat >bootstrap.toml <<END
+profile = "dist"
+change-id = "ignore"
+
+[llvm]
+download-ci-llvm = false
+link-shared = true
+
+[build]
+target = ["x86_64-unknown-linux-gnu",]
+cargo = "/usr/bin/cargo"
+rustc = "/usr/bin/rustc"
+rustfmt = "/usr/bin/rustfmt"
+locked-deps = true
+vendor = true
+tools = ["cargo","clippy","rustdoc","rustfmt","rust-analyzer-proc-macro-srv","analysis","src",]
+sanitizers = true
+profiler = true
+docs = false
+
+[install]
+prefix = "/usr"
+
+[rust]
+codegen-units = 1
+codegen-units-std = 1
+debuginfo-level = 0
+debuginfo-level-std = 0
+channel = "nightly"
+rpath = false
+frame-pointers = true
+deny-warnings = false
+
+[dist]
+compression-formats = ["gz"]
+compression-profile = "fast"
+
+[target.x86_64-unknown-linux-gnu]
+cc = "/usr/bin/clang"
+cxx = "/usr/bin/clang++"
+ar = "/usr/bin/llvm-ar"
+ranlib = "/usr/bin/llvm-ranlib"
+llvm-config = "/usr/bin/llvm-config"
+END
+}
+
+_pick() {
+  local p="$1" f d; shift
+  for f; do
+    d="$srcdir/$p/${f#$pkgdir/}"
+    mkdir -p "$(dirname "$d")"
+    mv "$f" "$d"
+    rmdir -p --ignore-fail-on-non-empty "$(dirname "$f")"
+  done
+}
+
+build() {
+  rustup default beta
+  cd rustc-nightly-src
+  DESTDIR="$srcdir/dest-rust" python ./x.py install -j "$(nproc)"
+  cd ../dest-rust
+
+  rm -v usr/lib/rustlib/{components,install.log,rust-installer-version,uninstall.sh}
+  rm -v usr/lib/rustlib/manifest-*
+
+  mkdir -pv usr/lib32
+  ln -srvft usr/lib   usr/lib/rustlib/x86_64-unknown-linux-gnu/lib/*.so
+  ln -srvft usr/lib32 usr/lib/rustlib/i686-unknown-linux-gnu/lib/*.so
+  _pick dest-src  usr/lib/rustlib/src
+}
+
+package_rust-git() {
+  provides=(rust cargo rustfmt)
+  conflicts=(rust cargo rust-docs rustfmt)
+  cp -a dest-rust/* "$pkgdir"
+}
+
+package_rust-src-git() {
+  depends=(rust)
+  provides=(rust-src)
+  conflicts=(rust-src)
+  cp -a dest-src/* "$pkgdir"
+}

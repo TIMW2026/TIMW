@@ -1,0 +1,38 @@
+pkgname=wine-staging-git
+pkgver=10.12.r8.g999c6a11
+pkgrel=1
+arch=(x86_64)
+depends=(attr desktop-file-utils fontconfig freetype2 gcc-libs gettext libpcap libxcursor libxi libxrandr wayland)
+makedepends=(alsa-lib ffmpeg giflib git gnutls gst-plugins-base-libs gtk3 libcups libgphoto2 libpulse libva libxcomposite libxinerama libxxf86vm mesa mingw-w64-gcc opencl-headers opencl-icd-loader pcsclite perl samba sane sdl2 v4l-utils vulkan-icd-loader)
+source=(wine::git+https://gitlab.winehq.org/wine/wine.git wine-staging::git+https://gitlab.winehq.org/wine/wine-staging.git)
+
+pkgver() {
+    git -C wine-staging describe --long --tags | sed 's/\([^-]*-g\)/r\1/;s/-/./g;s/^wine.//;s/^v//;s/\.rc/rc/'
+}
+
+prepare() {
+  rm -rf $pkgname-64-build
+  mkdir $pkgname-64-build
+  cd wine
+  ../wine-staging/staging/patchinstall.py --backend=git-apply --all
+}
+
+build() {
+  cd "$srcdir/$pkgname-64-build"
+  ../wine/configure \
+    --prefix=/usr \
+    --libdir=/usr/lib \
+    --enable-archs=x86_64,i386
+  make
+}
+
+package() {
+  provides=(wine wine-staging)
+  conflicts=(wine wine-staging)
+  cd "$srcdir/$pkgname-64-build"
+  make prefix="$pkgdir/usr" \
+    libdir="$pkgdir/usr/lib" \
+    dlldir="$pkgdir/usr/lib/wine" install
+  i686-w64-mingw32-strip --strip-unneeded "$pkgdir"/usr/lib/wine/i386-windows/*.dll
+  x86_64-w64-mingw32-strip --strip-unneeded "$pkgdir"/usr/lib/wine/x86_64-windows/*.dll
+}

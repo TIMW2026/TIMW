@@ -1,0 +1,52 @@
+pkgname=dxvk-mingw-git
+pkgver=2.7.r24.g835e98cf2
+pkgrel=1
+arch=(x86_64)
+depends=(vulkan-icd-loader wine bash)
+makedepends=(ninja meson glslang git mingw-w64-gcc)
+source=(git+https://github.com/doitsujin/dxvk.git setup_dxvk.sh setup_dxvk)
+
+pkgver() {
+    cd dxvk
+    printf "%s" "$(git describe --long --tags | sed 's/\([^-]*-g\)/r\1/;s/-/./g;s/v//g')"
+}
+
+prepare() {
+    cd dxvk
+    git remote set-url origin https://github.com/doitsujin/dxvk.git
+    git submodule update --init --filter=tree:0 --recursive
+}
+
+build() {
+    CFLAGS="-mno-avx"
+    CXXFLAGS="-mno-avx"
+    LDFLAGS=${LDFLAGS/-fuse-ld=lld}
+    meson setup dxvk "build/x64" \
+        --cross-file dxvk/build-win64.txt \
+        --prefix "/usr/share/dxvk/x64" \
+        --bindir "" --libdir "" \
+        --buildtype "release" \
+        --force-fallback-for=libdisplay-info \
+        -Db_ndebug=false \
+        --strip
+    ninja -C "build/x64" -v
+    meson setup dxvk "build/x32" \
+        --cross-file dxvk/build-win32.txt \
+        --prefix "/usr/share/dxvk/x32" \
+        --bindir "" --libdir "" \
+        --buildtype "release" \
+        --force-fallback-for=libdisplay-info \
+        -Db_ndebug=false \
+        --strip
+    ninja -C "build/x32" -v
+}
+
+package() {
+    provides=(dxvk)
+    conflicts=(dxvk)
+    DESTDIR="$pkgdir" ninja -C "build/x32" install
+    DESTDIR="$pkgdir" ninja -C "build/x64" install
+    install -Dm 644 -t "$pkgdir/usr/share/dxvk" dxvk/dxvk.conf
+    install -Dm 755 -t "$pkgdir/usr/share/dxvk" setup_dxvk.sh
+    install -Dm 755 -t "$pkgdir/usr/bin" setup_dxvk
+}

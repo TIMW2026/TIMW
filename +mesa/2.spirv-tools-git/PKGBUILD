@@ -1,0 +1,32 @@
+pkgname=spirv-tools-git
+pkgver=r4328.a983ab1
+pkgrel=1
+arch=(x86_64)
+depends=(gcc-libs glibc sh)
+makedepends=(cmake git ninja python spirv-headers)
+groups=(vulkan-devel)
+source=(SPIRV-Tools::git+https://github.com/KhronosGroup/SPIRV-Tools.git)
+
+pkgver() {
+    cd SPIRV-Tools
+    printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short=7 HEAD)"
+}
+
+build() {
+  cmake -B _build -S SPIRV-Tools -G Ninja \
+    -D BUILD_SHARED_LIBS=ON \
+    -D CMAKE_BUILD_TYPE=Release \
+    -D CMAKE_INSTALL_PREFIX=/usr \
+    -D CMAKE_INSTALL_SYSCONFDIR=/etc \
+    -D CMAKE_SKIP_INSTALL_RPATH=ON \
+    -D SPIRV-Headers_SOURCE_DIR=/usr \
+    -D SPIRV_TOOLS_BUILD_STATIC=OFF \
+    -D SPIRV_WERROR=OFF
+  cmake --build _build
+}
+
+package() {
+  provides=(spirv-tools)
+  conflicts=(spirv-tools)
+  DESTDIR="$pkgdir" cmake --install _build
+}

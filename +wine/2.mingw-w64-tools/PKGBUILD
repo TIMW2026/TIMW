@@ -1,0 +1,34 @@
+pkgname=mingw-w64-tools
+pkgver=13.0.0
+pkgrel=1
+arch=(x86_64)
+groups=(mingw-w64)
+depends=(glibc)
+source=(https://sourceforge.net/projects/mingw-w64/files/mingw-w64/mingw-w64-release/mingw-w64-v${pkgver}.tar.bz2)
+_architectures="i686-w64-mingw32 x86_64-w64-mingw32"
+
+build() {
+  cd "${srcdir}"
+  for tool in gendef genidl genpeimg; do
+    mkdir -p "${srcdir}"/${tool}-build && cd "${srcdir}"/${tool}-build
+    "${srcdir}"/mingw-w64-v${pkgver}/mingw-w64-tools/${tool}/configure --prefix=/usr
+    make
+  done
+  for _arch in ${_architectures}; do
+    mkdir -p "${srcdir}"/widl-${_arch}-build && cd "${srcdir}"/widl-${_arch}-build
+    "${srcdir}"/mingw-w64-v${pkgver}/mingw-w64-tools/widl/configure --prefix=/usr --target=${_arch} \
+      --program-prefix="${_arch}-"
+    make
+  done
+}
+
+package() {
+  for tool in gendef genidl genpeimg; do
+    cd "${srcdir}/${tool}-build"
+    make DESTDIR="${pkgdir}" install
+  done
+  for _arch in ${_architectures}; do
+    cd "${srcdir}/widl-${_arch}-build"
+    make DESTDIR="${pkgdir}" install
+  done
+}

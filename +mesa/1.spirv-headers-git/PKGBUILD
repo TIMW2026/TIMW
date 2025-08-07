@@ -1,0 +1,27 @@
+pkgname=spirv-headers-git
+pkgver=r720.de1807b
+pkgrel=1
+arch=(x86_64)
+makedepends=(cmake git ninja)
+groups=(vulkan-devel)
+source=(SPIRV-Headers::git+https://github.com/KhronosGroup/SPIRV-Headers.git)
+
+pkgver() {
+    cd SPIRV-Headers
+    printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short=7 HEAD)"
+}
+
+build() {
+  cmake -B _build -S SPIRV-Headers -G Ninja \
+    -D CMAKE_BUILD_TYPE=Release \
+    -D CMAKE_INSTALL_PREFIX=/usr \
+    -D CMAKE_INSTALL_SYSCONFDIR=/etc \
+    -D CMAKE_SKIP_INSTALL_RPATH=ON
+  cmake --build _build
+}
+
+package() {
+  provides=(spirv-headers)
+  conflicts=(spirv-headers)
+  DESTDIR="$pkgdir" cmake --install _build
+}

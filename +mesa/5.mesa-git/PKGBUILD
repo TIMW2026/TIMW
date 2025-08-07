@@ -1,0 +1,158 @@
+pkgname=('mesa-git' 'opencl-mesa-git' 'vulkan-dzn-git' 'vulkan-intel-git' 'vulkan-nouveau-git' 'vulkan-radeon-git' 'vulkan-mesa-layers-git')
+pkgver=25.3.0_devel.209263.8037d22f015.d41d8cd
+pkgrel=1
+arch=(x86_64)
+makedepends=(clang directx-headers expat gcc-libs glibc libdrm libelf libglvnd libpng libva libvdpau libx11 libxcb libxext libxml2 libxrandr libxshmfence libxxf86vm llvm llvm-libs lm_sensors rust spirv-llvm-translator spirv-tools systemd-libs vulkan-icd-loader wayland xcb-util-keysyms zlib zstd cbindgen clang cmake elfutils glslang libclc meson python-mako python-packaging python-ply python-yaml rust-bindgen wayland-protocols xorgproto)
+source=(mesa::git+https://gitlab.freedesktop.org/mesa/mesa.git)
+
+pkgver() {
+    cd mesa
+    local _ver
+    _ver=$(<VERSION)
+    local _patchver
+    local _patchfile
+    for _patchfile in "${source[@]}"; do
+        _patchfile="${_patchfile%%::*}"
+        _patchfile="${_patchfile##*/}"
+        [[ $_patchfile = *.patch ]] || continue
+        _patchver="${_patchver}$(md5sum ${srcdir}/${_patchfile} | cut -c1-32)"
+    done
+    _patchver="$(echo -n $_patchver | md5sum | cut -c1-7)"
+    echo ${_ver/-/_}.$(git rev-list --count HEAD).$(git rev-parse --short HEAD).${_patchver}
+}
+
+declare -A _crates=(
+   rustc-hash      2.1.1
+   paste           1.0.14
+   proc-macro2     1.0.86
+   quote           1.0.35
+   syn             2.0.87
+   unicode-ident   1.0.12
+)
+
+for _crate in "${!_crates[@]}"; do
+  _ver="${_crates[$_crate]}"
+  source+=(
+    "$_crate-$_ver.tar.gz::https://crates.io/api/v1/crates/$_crate/$_ver/download"
+  )
+done
+
+build() {
+  local meson_options=(
+    -D android-libbacktrace=disabled
+    -D b_ndebug=true
+    -D egl=enabled
+    -D gallium-drivers=radeonsi,nouveau,iris,zink,d3d12
+    -D gallium-rusticl=true
+    -D gallium-rusticl-enable-drivers=iris,nouveau,radeonsi
+    -D gallium-va=enabled
+    -D gallium-vdpau=enabled
+    -D gallium-mediafoundation=disabled
+    -D gbm=enabled
+    -D gles1=disabled
+    -D gles2=enabled
+    -D glvnd=enabled
+    -D glx=dri
+    -D libunwind=disabled
+    -D microsoft-clc=disabled
+    -D valgrind=disabled
+    -D video-codecs=all
+    -D vulkan-drivers=amd,intel,nouveau,microsoft-experimental
+    -D vulkan-layers=device-select,overlay,anti-lag
+    -D vulkan-beta=true
+    -D tools=[]
+    -D zstd=enabled
+    -D platforms=x11,wayland
+    --buildtype=release
+  )
+  export MESON_PACKAGE_CACHE_DIR="$srcdir"
+  arch-meson mesa _build "${meson_options[@]}"
+  meson compile $NINJAFLAGS -C _build
+}
+
+_pick() {
+  local p="$1" f d; shift
+  for f; do
+    d="$srcdir/$p/${f#$pkgdir/}"
+    mkdir -p "$(dirname "$d")"
+    mv -v "$f" "$d"
+    rmdir -p --ignore-fail-on-non-empty "$(dirname "$f")"
+  done
+}
+
+package_mesa-git() {
+  depends=(expat gcc-libs glibc libdrm libelf libglvnd libx11 libxcb libxext libxshmfence libxxf86vm llvm-libs lm_sensors spirv-tools wayland zlib zstd)
+  provides=(mesa libva-mesa-driver mesa-libgl mesa-vdpau libva-driver opengl-driver vdpau-driver)
+  conflicts=(mesa libva-mesa-driver mesa-libgl mesa-vdpau)
+  meson install -C _build --destdir "$pkgdir" --no-rebuild
+  (
+    local libdir=usr/lib icddir=usr/share/vulkan/icd.d
+    cd "$pkgdir"
+
+    _pick opencl $libdir/libRusticlOpenCL*
+    _pick opencl etc/OpenCL/vendors/rusticl.icd
+
+    _pick vkdzn $icddir/dzn_icd.*.json
+    _pick vkdzn $libdir/libvulkan_dzn.so
+    _pick vkdzn $libdir/libspirv_to_dxil.*
+    _pick vkdzn usr/bin/spirv2dxil
+
+    _pick vkintel $icddir/intel_icd.*.json
+    _pick vkintel $libdir/libvulkan_intel.so
+
+    _pick vknvidia $icddir/nouveau_icd.*.json
+    _pick vknvidia $libdir/libvulkan_nouveau.so
+
+    _pick vkradeon $icddir/radeon_icd.*.json
+    _pick vkradeon $libdir/libvulkan_radeon.so
+    _pick vkradeon usr/share/drirc.d/00-radv-defaults.conf
+
+    _pick vklayer $libdir/libVkLayer_*.so
+    _pick vklayer usr/bin/mesa-*-control.py
+    _pick vklayer usr/share/vulkan/{ex,im}plicit_layer.d
+
+    ln -sr $libdir/libGLX_{mesa,indirect}.so.0
+  )
+}
+
+package_opencl-mesa-git() {
+  depends=(clang expat gcc-libs glibc libdrm libelf llvm-libs spirv-llvm-translator spirv-tools zlib zstd libclc)
+  provides=(opencl-mesa opencl-driver)
+  conflicts=(opencl-mesa opencl-clover-mesa opencl-rusticl-mesa)
+  mv opencl/* "$pkgdir"
+}
+
+package_vulkan-dzn-git() {
+  depends=(expat gcc-libs glibc libdrm libx11 libxcb libxshmfence spirv-tools systemd-libs vulkan-icd-loader wayland xcb-util-keysyms zlib zstd)
+  provides=(vulkan-dzn vulkan-driver)
+  conflicts=(vulkan-dzn)
+  mv vkdzn/* "$pkgdir"
+}
+
+package_vulkan-intel-git() {
+  depends=(expat gcc-libs glibc libdrm libx11 libxcb libxshmfence spirv-tools systemd-libs vulkan-icd-loader wayland xcb-util-keysyms zlib zstd)
+  provides=(vulkan-intel vulkan-driver)
+  conflicts=(vulkan-intel)
+  mv vkintel/* "$pkgdir"
+}
+
+package_vulkan-nouveau-git() {
+  depends=(expat gcc-libs glibc libdrm libx11 libxcb libxshmfence spirv-tools systemd-libs vulkan-icd-loader wayland xcb-util-keysyms zlib zstd)
+  provides=(vulkan-nouveau vulkan-driver)
+  conflicts=(vulkan-nouveau)
+  mv vknvidia/* "$pkgdir"
+}
+
+package_vulkan-radeon-git() {
+  depends=( expat gcc-libs glibc libdrm libelf libx11 libxcb libxshmfence llvm-libs spirv-tools systemd-libs vulkan-icd-loader wayland xcb-util-keysyms zlib zstd)
+  provides=(vulkan-radeon vulkan-driver)
+  conflicts=(vulkan-radeon)
+  mv vkradeon/* "$pkgdir"
+}
+
+package_vulkan-mesa-layers-git() {
+  depends=(gcc-libs glibc libdrm libpng libxcb wayland python)
+  provides=(vulkan-mesa-layers)
+  conflicts=(vulkan-mesa-layer)
+  mv vklayer/* "$pkgdir"
+}

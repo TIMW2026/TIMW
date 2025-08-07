@@ -1,0 +1,139 @@
+pkgname=('llvm-git' 'llvm-libs-git')
+pkgver=22.0.0_r546537.2b8696b58e25
+pkgrel=1
+arch=(x86_64)
+makedepends=(git llvm cmake ninja zlib zstd curl libffi libedit libxml2 python python-setuptools)
+source=(llvm-project::git+https://github.com/llvm/llvm-project.git)
+
+pkgver() {
+    cd llvm-project/cmake/Modules
+    local _pkgver=$(awk -F 'MAJOR |MINOR |PATCH |)' \
+            'BEGIN { ORS="." ; i=0 } \
+             /set\(LLVM_VERSION_/ { print $2 ; i++ ; if (i==2) ORS="" } \
+             END { print "\n" }' \
+             LLVMVersion.cmake)_r$(git rev-list --count HEAD).$(git rev-parse --short HEAD)
+    echo "${_pkgver}"
+}
+
+_get_distribution_components() {
+  local target
+  ninja -t targets | grep -Po 'install-\K.*(?=-stripped:)' | while read -r target; do
+    case $target in
+      llvm-libraries|clang-libraries|distribution)
+        continue
+        ;;
+      LLVM|LLVMgold)
+        ;;
+      LLVMDemangle|LLVMSupport|LLVMTableGen)
+        ;;
+      LLVMDebuginfod)
+        ;;
+      LLVMTestingAnnotations|LLVMTestingSupport)
+        ;;
+      LLVM*)
+        continue
+        ;;
+      llvm-exegesis)
+        continue
+        ;;
+      clang|clangd|clang-*)
+        ;;
+      clang*|findAllSymbols)
+        continue
+        ;;
+      * )
+        ;;
+    esac
+    echo $target
+  done
+}
+
+build() {
+  local cmake_args=(
+    -G Ninja
+    -D CMAKE_BUILD_TYPE=Release
+    -D LLVM_HOST_TRIPLE=$CHOST
+    -D LLVM_TARGETS_TO_BUILD="AMDGPU;X86"
+    -D CMAKE_INSTALL_PREFIX=/usr
+    -D LLVM_BINUTILS_INCDIR=/usr/include
+    -D LLVM_INSTALL_UTILS=ON
+    -D LLVM_BUILD_LLVM_DYLIB=ON
+    -D LLVM_LINK_LLVM_DYLIB=ON
+    -D CLANG_LINK_CLANG_DYLIB=ON
+    -D LLVM_DYLIB_COMPONENTS="all"
+    -D LLVM_ENABLE_CURL=ON
+    -D LLVM_ENABLE_FFI=ON
+    -D LLVM_ENABLE_RTTI=ON
+    -D LLVM_ENABLE_BINDINGS=OFF
+    -D LLVM_BUILD_TESTS=OFF
+    -D LLVM_INCLUDE_BENCHMARKS=OFF
+    -D LLVM_INCLUDE_EXAMPLES=OFF
+    -D LLVM_BUILD_DOCS=OFF
+    -D LLVM_INCLUDE_DOCS=OFF
+    -D LLVM_VERSION_SUFFIX=""
+    -D LLVM_APPEND_VC_REV=ON
+    -D LLVM_ENABLE_RUNTIMES=compiler-rt
+    -D LLVM_ENABLE_PROJECTS="clang-tools-extra;clang;lld"
+  )
+    
+    cmake -B _build -S "$srcdir"/llvm-project/llvm "${cmake_args[@]}" -Wno-dev
+    pushd "$srcdir"/_build
+    local distribution_components=$(_get_distribution_components | paste -sd\;)
+    popd
+    test -n "$distribution_components"
+    cmake_args+=(-D LLVM_DISTRIBUTION_COMPONENTS="$distribution_components")
+    cmake -B _build -S "$srcdir"/llvm-project/llvm "${cmake_args[@]}" -Wno-dev
+    ninja $NINJAFLAGS -C _build
+}
+
+_python_optimize() {
+  python -m compileall "$@"
+  python -O -m compileall "$@"
+  python -OO -m compileall "$@"
+}
+
+package_llvm-git() {
+  depends=(llvm-libs gcc gcc-libs compiler-rt curl perl zlib zstd)
+  provides=(llvm clang-git clang clang-analyzer-git clang-analyzer clang-tools-extra-git clang-tools-extra compiler-rt-git compiler-rt lld-git lld)
+  conflicts=(llvm clang-git clang clang-analyzer-git clang-analyzer clang-tools-extra-git clang-tools-extra compiler-rt-git compiler-rt lld-git lld)
+  DESTDIR="$pkgdir" ninja $NINJAFLAGS -C _build install-distribution
+
+  pushd "$srcdir"/llvm-project/llvm/utils/lit
+  python3 setup.py install --root="$pkgdir" -O1
+  popd
+
+  mv -f "$pkgdir"/usr/lib/lib{LLVM,LTO,Remarks}*.so* "$srcdir"
+  mv -f "$pkgdir"/usr/lib/LLVMgold.so "$srcdir"
+  
+  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+  install -d "$pkgdir/$site_packages"
+  mv "$pkgdir"/usr/lib/{libear,libscanbuild} "$pkgdir/$site_packages/"
+  cp -a "$srcdir"/llvm-project/clang/bindings/python/clang "$pkgdir/$site_packages/"
+
+  mv "$pkgdir"/usr/libexec/* "$pkgdir/usr/lib/clang/"
+  rmdir "$pkgdir/usr/libexec"
+  sed -i 's|libexec|lib/clang|' \
+    "$pkgdir/usr/bin/scan-build" \
+    "$pkgdir/$site_packages/libscanbuild/analyze.py"
+
+  _python_optimize "$pkgdir/usr/share" "$pkgdir/$site_packages"
+
+  local bash_completion_destdir="$pkgdir/usr/share/bash-completion/completions"
+  install -d $bash_completion_destdir
+  mv "$pkgdir/usr/share/clang/bash-autocomplete.sh" "$bash_completion_destdir/clang"
+}
+
+package_llvm-libs-git() {
+  depends=(gcc-libs zlib zstd libffi libedit libxml2)
+  provides=(llvm-libs libLLVM.so libLTO.so libRemarks.so)
+  conflicts=(llvm-libs)
+
+  install -d "$pkgdir/usr/lib"
+  cp -P \
+    "$srcdir"/lib{LLVM,LTO,Remarks}*.so* \
+    "$srcdir"/LLVMgold.so \
+    "$pkgdir/usr/lib/"
+
+  install -d "$pkgdir/usr/lib/bfd-plugins"
+  ln -s ../LLVMgold.so "$pkgdir/usr/lib/bfd-plugins/LLVMgold.so"
+}

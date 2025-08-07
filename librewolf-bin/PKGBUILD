@@ -1,0 +1,62 @@
+pkgname=librewolf-bin
+pkgver=141.0.0_1
+pkgrel=1
+arch=(x86_64)
+_fixedfirefoxver="${pkgver%_*}"
+_librewolfver="${pkgver#*_}"
+_firefoxver="${_fixedfirefoxver%.0}"
+depends=(gtk3 libxt startup-notification mime-types dbus nss ttf-font libpulse ffmpeg hicolor-icon-theme libxdamage libxi alsa-lib libxrender libxcursor gdk-pixbuf2 libxrandr pango freetype2 glibc bash fontconfig libxcomposite glib2 gcc-libs libx11 libxfixes at-spi2-core libxcb cairo nspr libxext)
+makedepends=(git)
+
+backup=(usr/lib/librewolf/librewolf.cfg usr/lib/librewolf/distribution/policies.json)
+_project_id=44042130
+_base_url=https://gitlab.com/api/v4/projects/${_project_id}/packages/generic/${pkgname//-bin/""}/$_firefoxver-$_librewolfver
+_uploadpath=${_base_url}/${pkgname//-bin/""}-$_firefoxver-$_librewolfver-linux-x86_64-package.tar.xz
+_source_tag="$_firefoxver-$_librewolfver"
+source=("git+https://gitlab.com/${pkgname//-bin/""}-community/browser/source.git#tag=${_source_tag}" "${_uploadpath}" default192x192.png librewolf.desktop )
+
+package() {
+  install -dm 755 ${pkgdir}/usr/lib/librewolf
+  install -dm 755 ${pkgdir}/usr/bin
+  cp -r "${srcdir}"/${pkgname//-bin/""}/* "${pkgdir}"/usr/lib/librewolf
+  cd ${srcdir}/${pkgname//-bin/""}
+  local vendorjs="$pkgdir/usr/lib/${pkgname//-bin/""}/browser/defaults/preferences/vendor.js"
+  install -Dvm644 /dev/stdin "$vendorjs" <<END
+// Use system-provided dictionaries
+pref("spellchecker.dictionary_path", "/usr/share/hunspell");
+// Don't disable extensions in the application directory
+// done in librewolf.cfg
+// pref("extensions.autoDisableScopes", 11);
+END
+  local distini="$pkgdir/usr/lib/${pkgname//-bin/""}/distribution/distribution.ini"
+  install -Dvm644 /dev/stdin "$distini" <<END
+[Global]
+id=io.gitlab.${pkgname//-bin/""}-community
+version=1.0
+about=LibreWolf
+
+[Preferences]
+app.distributor="LibreWolf Community"
+app.distributor.channel=${pkgname//-bin/""}
+app.partner.librewolf=${pkgname//-bin/""}
+END
+  for i in 16 32 48 64 128; do
+    install -Dvm644 ${srcdir}/source/themes/browser/branding/${pkgname//-bin/""}/default$i.png \
+      "$pkgdir/usr/share/icons/hicolor/${i}x${i}/apps/${pkgname//-bin/""}.png"
+  done
+  install -Dvm644 ${srcdir}/default192x192.png \
+    "$pkgdir/usr/share/icons/hicolor/192x192/apps/${pkgname//-bin/""}.png"
+  install -Dvm644 ${srcdir}/source/themes/browser/branding/${pkgname//-bin/""}/default16.png \
+    "$pkgdir/usr/share/icons/hicolor/symbolic/apps/${pkgname//-bin/""}-symbolic.png"
+  install -Dvm644 ${srcdir}/${pkgname//-bin/""}.desktop \
+    "$pkgdir/usr/share/applications/${pkgname//-bin/""}.desktop"
+  install -Dvm755 /dev/stdin "$pkgdir/usr/bin/${pkgname//-bin/""}" <<END
+#!/bin/sh
+exec /usr/lib/${pkgname//-bin/""}/librewolf "\$@"
+END
+  ln -srfv "$pkgdir/usr/bin/${pkgname//-bin/""}" "$pkgdir/usr/lib/${pkgname//-bin/""}/librewolf-bin"
+  local nssckbi="$pkgdir/usr/lib/${pkgname//-bin/""}/libnssckbi.so"
+  if [[ -e $nssckbi ]]; then
+    ln -srfv "$pkgdir/usr/lib/libnssckbi.so" "$nssckbi"
+  fi
+}
