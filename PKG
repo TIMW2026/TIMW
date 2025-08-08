@@ -1,0 +1,30 @@
+#!/bin/bash
+sudo pacman -Syu --noconfirm
+
+TIMW_PKGS=$(pacman -Sl TIMW-AUR | awk '{ print $2 }')
+echo "$TIMW_PKGS"
+
+read -p "Do you want to install (a)ll packages at once or (o)ne-by-one? [A/o]: " choice
+choice=${choice:-A}
+
+case "$choice" in
+    a|A)
+        echo "Installing all TIMW-AUR packages at once..."
+        sudo pacman -S $TIMW_PKGS --needed
+        ;;
+    o|O)
+        echo "Installing packages one-by-one..."
+        for pkg in $TIMW_PKGS; do
+            read -p "Do you want to install $pkg? [y/N]: " yn
+            yn=${yn:-N}
+            case "$yn" in
+                y|Y)
+                    sudo pacman -S "$pkg"
+                    ;;
+                *)
+                    echo "Skipping $pkg"
+                    ;;
+            esac
+        done
+        ;;
+esac
