@@ -1,0 +1,100 @@
+pkgname=mesa-git
+pkgver=26.3.0_devel.229928.590bf21d918.d41d8cd
+pkgrel=1
+arch=('x86_64')
+depends=('expat' 'glibc' 'libdrm' 'libelf' 'libgcc' 'libglvnd' 'libstdc++' 'libx11' 'libxcb' 'libxext' 'libxshmfence' 'libxxf86vm' 'llvm-libs' 'lm_sensors' 'spirv-tools' 'wayland' 'zlib' 'zstd' 'libdisplay-info' 'systemd-libs' 'vulkan-icd-loader' 'vulkan-mesa-implicit-layers' 'xcb-util-keysyms' 'clang' 'spirv-llvm-translator' 'libclc' 'libpng' 'python')
+makedepends=('git' 'directx-headers' 'libva' 'libxml2' 'libxrandr' 'llvm' 'rust' 'cbindgen' 'cmake' 'elfutils' 'glslang' 'meson' 'python-mako' 'python-packaging' 'python-ply' 'python-pycparser' 'python-yaml' 'rust-bindgen' 'wayland-protocols' 'xorgproto')
+source=("mesa::git+https://gitlab.freedesktop.org/mesa/mesa.git")
+sha512sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP')
+
+declare -A _crates=(
+  paste            1.0.14
+  proc-macro2      1.0.86
+  quote            1.0.35
+  rustc-hash       2.1.1
+  syn              2.0.87
+  unicode-ident    1.0.12
+)
+
+_gencrates() {
+  grep '^source_url' subprojects/*-rs.wrap | \
+    sed -r 's|.*crates/([^/]+)/([0-9.]+)/download|\1 \2|' | \
+    column -t -S 2 | sed 's/^/  /'
+}
+
+for _crate in "${!_crates[@]}"; do
+  _ver="${_crates[$_crate]}"
+  source+=(
+    "$_crate-$_ver.tar.gz::https://static.crates.io/crates/$_crate/$_ver/download"
+  )
+done
+
+pkgver() {
+    cd mesa
+    local _ver
+    _ver=$(<VERSION)
+
+    local _patchver
+    local _patchfile
+    for _patchfile in "${source[@]}"; do
+        _patchfile="${_patchfile%%::*}"
+        _patchfile="${_patchfile##*/}"
+        [[ $_patchfile = *.patch ]] || continue
+        _patchver="${_patchver}$(md5sum ${srcdir}/${_patchfile} | cut -c1-32)"
+    done
+    _patchver="$(echo -n $_patchver | md5sum | cut -c1-7)"
+
+    echo ${_ver/-/_}.$(git rev-list --count HEAD).$(git rev-parse --short HEAD).${_patchver}
+}
+
+build() {
+  local meson_options=(
+    --prefix        /usr
+    --libexecdir    lib
+    --sbindir       bin
+    --buildtype     release
+    --auto-features enabled
+    --wrap-mode     nodownload
+    -D android-libbacktrace=disabled
+    -D b_ndebug=true
+    -D gallium-drivers=radeonsi
+    -D gallium-extra-hud=true
+    -D gallium-va=enabled
+    -D gallium-mediafoundation=disabled
+    -D gallium-rusticl-enable-drivers=radeonsi
+    -D gallium-rusticl=true
+    -D rust_std=2021
+    -D egl=enabled
+    -D gbm=enabled
+    -D gles1=disabled
+    -D gles2=enabled
+    -D glvnd=enabled
+    -D glx=dri
+    -D html-docs=disabled
+    -D libunwind=disabled
+    -D llvm=enabled
+    -D lmsensors=enabled
+    -D microsoft-clc=disabled
+    -D platforms=x11,wayland
+    -D valgrind=disabled
+    -D video-codecs=all
+    -D vulkan-drivers=amd
+    -D vulkan-layers=device-select,anti-lag
+    -D vulkan-loader-rpath=
+    -D vulkan-manifest-per-architecture=false
+    -D vulkan-beta=true
+    -D tools=[]
+    -D zstd=enabled
+  )
+  export MESON_PACKAGE_CACHE_DIR="$srcdir"
+  meson setup mesa _build "${meson_options[@]}"
+  meson configure --no-pager _build
+  ninja -j"$(nproc)" -C _build
+}
+
+package() {
+  provides=('vulkan-mesa-layers' 'vulkan-mesa-implicit-layers' 'vulkan-driver' 'vulkan-radeon' 'opencl-driver' 'opencl-mesa' 'mesa' 'libva-mesa-driver' 'mesa-libgl' 'libva-driver' 'opengl-driver')
+  conflicts=('vulkan-mesa-layer' 'vulkan-mesa-device-select' 'opencl-clover-mesa' 'opencl-rusticl-mesa' 'libva-mesa-driver' 'mesa-libgl')
+  DESTDIR="${pkgdir}" ninja -j"$(nproc)" -C _build install
+  ln -s /usr/lib/libGLX_mesa.so.0 "${pkgdir}/usr/lib/libGLX_indirect.so.0"
+}

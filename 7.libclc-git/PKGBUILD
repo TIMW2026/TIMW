@@ -1,0 +1,43 @@
+pkgname=libclc-git
+pkgver=24.0.0_r597949.2bb259ab4b5d
+pkgrel=1
+arch=('any')
+makedepends=('git' 'cmake' 'ninja' 'clang' 'llvm' 'python' 'spirv-llvm-translator')
+source=(llvm-project::git+https://github.com/llvm/llvm-project.git revert-10644a1-v3.patch)
+sha512sums=('SKIP' 'SKIP')
+
+prepare() {
+  cd llvm-project
+  local _commit_hash=$(echo $(pacman -Q llvm-stable-git) | cut -d' ' -f2 |  cut -d'-' -f1 | cut -d'.' -f4)
+  git reset --hard $_commit_hash
+  patch -Np1 -i "$srcdir"/revert-10644a1-v3.patch
+}
+
+pkgver() {
+    cd llvm-project/cmake/Modules
+    local _pkgver=$(awk -F 'MAJOR |MINOR |PATCH |)' \
+            'BEGIN { ORS="." ; i=0 } \
+             /set\(LLVM_VERSION_/ { print $2 ; i++ ; if (i==2) ORS="" } \
+             END { print "\n" }' \
+             LLVMVersion.cmake)_r$(git rev-list --count HEAD).$(git rev-parse --short HEAD)
+    echo "${_pkgver}"
+}
+
+build() {
+  local cmake_args=(
+    -B _build
+    -S "$srcdir"/llvm-project/libclc
+    -G Ninja
+    -DCMAKE_BUILD_TYPE=Release
+    -DCMAKE_INSTALL_PREFIX=/usr
+    -D LLVM_DEFAULT_TARGET_TRIPLE="spirv64-unknown-unknown"
+  )
+  cmake .. "${cmake_args[@]}"
+  ninja -j"$(nproc)" -C _build
+}
+
+package() {
+  provides=('libclc')
+  conflicts=('libclc')
+  DESTDIR="${pkgdir}" ninja -j"$(nproc)" -C _build install
+}

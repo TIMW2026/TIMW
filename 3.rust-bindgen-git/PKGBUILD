@@ -1,0 +1,39 @@
+pkgname=rust-bindgen-git
+pkgver=0.73.2.r2.gd1306286
+pkgrel=1
+arch=('x86_64')
+depends=('libgcc' 'glibc' 'clang')
+makedepends=('git' 'cargo')
+source=("rust-bindgen::git+https://github.com/rust-lang/rust-bindgen.git")
+sha512sums=('SKIP')
+export CARGO_PROFILE_RELEASE_LTO=true CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1
+
+pkgver() {
+  cd rust-bindgen
+  git describe --long --tags | sed 's/^v//;s/-/.r/;s/-/./g'
+}
+
+prepare() {
+  cd rust-bindgen
+  cargo fetch --locked --target host-tuple
+  mkdir -p completions
+}
+
+build() {
+  cd rust-bindgen
+  cargo build --release --frozen
+  local _completion="target/release/bindgen --generate-shell-completions"
+  $_completion bash >"completions/bindgen"
+  $_completion fish >"completions/bindgen.fish"
+  $_completion zsh >"completions/_bindgen"
+}
+
+package() {
+  provides=('rust-bindgen')
+  conflicts=('rust-bindgen')
+  cd rust-bindgen
+  install -Dm755 "target/release/bindgen" "$pkgdir"/usr/bin/bindgen
+  install -Dm664 "completions/bindgen" -t "$pkgdir/usr/share/bash-completion/completions/"
+  install -Dm664 "completions/bindgen.fish" -t "$pkgdir/usr/share/fish/vendor_completions.d/"
+  install -Dm664 "completions/_bindgen" -t "$pkgdir/usr/share/zsh/site-functions/"
+}

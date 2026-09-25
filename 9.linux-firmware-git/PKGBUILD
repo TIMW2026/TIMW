@@ -1,0 +1,48 @@
+pkgname=linux-firmware-git
+pkgver=20260918.96ebe7f8
+pkgrel=1
+arch=('any')
+makedepends=('git' 'parallel' 'python' 'rdfind')
+source=("linux-firmware::git+https://gitlab.com/kernel-firmware/linux-firmware.git")
+sha512sums=('SKIP')
+
+pkgver() {
+  cd linux-firmware
+  echo $(TZ=UTC git show -s --pretty=%cd --date=format-local:%Y%m%d HEAD).$(git rev-parse --short HEAD)
+}
+
+build() {
+  mkdir -p kernel/x86/microcode
+  cat linux-firmware/amd-ucode/microcode_amd*.bin > kernel/x86/microcode/AuthenticAMD.bin
+
+  if [[ -n ${SOURCE_DATE_EPOCH} ]]; then
+    touch -d @${SOURCE_DATE_EPOCH} kernel/x86/microcode/AuthenticAMD.bin
+  fi
+
+  echo kernel/x86/microcode/AuthenticAMD.bin |
+    bsdtar --uid 0 --gid 0 -cnf - -T - |
+    bsdtar --null -cf - --format=newc @- > amd-ucode.img
+}
+
+package() {
+  provides=('linux-firmware' 'linux-firmware-whence' 'linux-firmware-other' 'amd-ucode' 'linux-firmware-amdgpu' 'linux-firmware-realtek')
+  conflicts=('linux-firmware' 'linux-firmware-whence' 'linux-firmware-other' 'amd-ucode' 'linux-firmware-amdgpu' 'linux-firmware-realtek')
+  ZSTD_CLEVEL=19 make -C linux-firmware FIRMWAREDIR="${pkgdir}"/usr/lib/firmware install-zst
+  rm -rf "${pkgdir}"/usr/lib/firmware/amd{,npu,tee}
+  rm -rf "${pkgdir}"/usr/lib/firmware/{ar[0-9]*,ath*,carl9170*,htc_*,qca,wil6210*}
+  rm -rf "${pkgdir}"/usr/lib/firmware/{bnx2*,brcm,cypress,tigon}
+  rm -rf "${pkgdir}"/usr/lib/firmware/{cirrus,cs42l43*,sdca}
+  rm -rf "${pkgdir}"/usr/lib/firmware/{e100,hfi1_*,i915,intel,isci,iwlwifi*,ixp4xx,qat_*,xe}
+  rm -rf "${pkgdir}"/usr/lib/firmware/*/ish
+  rm -rf "${pkgdir}"/usr/lib/firmware/liquidio
+  rm -rf "${pkgdir}"/usr/lib/firmware/{libertas,mwl8k,mwlwifi,mrvl}
+  rm -rf "${pkgdir}"/usr/lib/firmware/{mediatek,mt7*,rt[237]*}
+  rm -rf "${pkgdir}"/usr/lib/firmware/mellanox
+  rm -rf "${pkgdir}"/usr/lib/firmware/netronome
+  rm -rf "${pkgdir}"/usr/lib/firmware/nvidia
+  rm -rf "${pkgdir}"/usr/lib/firmware/{qcom,a300_*}
+  rm -rf "${pkgdir}"/usr/lib/firmware/{qlogic,qed,ql2???_*,c{b,t,t2}fw-*}
+  rm -rf "${pkgdir}"/usr/lib/firmware/radeon
+  rm -rf "${pkgdir}"/usr/lib/firmware/{ti_*,ti,ti-connectivity,tas*,INT8*,TAS2*,TI*,TX*,????-*-0x?.*}
+  make -C linux-firmware FIRMWAREDIR="${pkgdir}/usr/lib/firmware" dedup
+}

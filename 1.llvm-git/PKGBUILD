@@ -1,0 +1,138 @@
+pkgname=llvm-git
+pkgver=24.0.0_r597941.3efbad6ac0ed
+pkgrel=1
+arch=('x86_64')
+depends=('llvm-libs' 'gcc' 'compiler-rt' 'curl' 'perl' 'libgcc' 'glibc' 'libstdc++' 'zlib' 'zstd' 'libffi' 'libedit' 'libxml2')
+makedepends=('git' 'llvm' 'cmake' 'ninja' 'python' 'python-setuptools' 'python-psutil' 'python-build' 'python-installer' 'python-wheel')
+source=("llvm-project::git+https://github.com/llvm/llvm-project.git")
+sha512sums=('SKIP')
+
+pkgver() {
+    cd llvm-project/cmake/Modules
+    local _pkgver=$(awk -F 'MAJOR |MINOR |PATCH |)' \
+            'BEGIN { ORS="." ; i=0 } \
+             /set\(LLVM_VERSION_/ { print $2 ; i++ ; if (i==2) ORS="" } \
+             END { print "\n" }' \
+             LLVMVersion.cmake)_r$(git rev-list --count HEAD).$(git rev-parse --short HEAD)
+    echo "${_pkgver}"
+}
+
+_get_distribution_components() {
+  local target
+  ninja -t targets | grep -Po 'install-\K.*(?=-stripped:)' | while read -r target; do
+    case $target in
+      llvm-libraries|LLVMDebuginfod|LLVMHTTP|clang-libraries|clang-tidy-headers|distribution)
+        continue
+        ;;
+      LLVM|LLVMgold)
+        ;;
+      LLVMDemangle|LLVMSupport|LLVMTableGen)
+        ;;
+      LLVMTestingAnnotations|LLVMTestingSupport)
+        ;;
+      LLVM*)
+        continue
+        ;;
+      llvm-exegesis)
+        continue
+        ;;
+      clang|clangd|clang-*)
+        ;;
+      clang*|findAllSymbols)
+        continue
+        ;;
+      * )
+        ;;
+    esac
+    echo $target
+  done
+}
+
+build() {
+    local cmake_args=(
+      -B _build
+      -S "$srcdir"/llvm-project/llvm
+      -G Ninja
+      -D CMAKE_BUILD_TYPE=Release
+      -D CMAKE_INSTALL_PREFIX=/usr
+      -D LLVM_BINUTILS_INCDIR=/usr/include
+      -D LLVM_VERSION_SUFFIX=""
+      -D LLVM_APPEND_VC_REV=ON
+      -D LLVM_HOST_TRIPLE=$CHOST
+      -D LLVM_TARGETS_TO_BUILD="AMDGPU;X86"
+      -D LLVM_BUILD_LLVM_DYLIB=ON
+      -D LLVM_LINK_LLVM_DYLIB=ON
+      -D CLANG_LINK_CLANG_DYLIB=ON
+      -D LLVM_DYLIB_COMPONENTS="all"
+      -D LLVM_INSTALL_UTILS=ON
+      -D LLVM_ENABLE_BINDINGS=OFF
+      -D LLVM_ENABLE_CURL=ON
+      -D LLVM_ENABLE_RTTI=ON
+      -D LLVM_ENABLE_FFI=ON
+      -D LLVM_USE_PERF=ON
+      -D LLVM_INSTALL_GTEST=OFF
+      -D LLVM_INCLUDE_BENCHMARKS=OFF
+      -D LLVM_INCLUDE_EXAMPLES=OFF
+      -D LLVM_BUILD_TESTS=OFF
+      -D LLVM_INCLUDE_TESTS=OFF
+      -D LLVM_BUILD_DOCS=OFF
+      -D LLVM_INCLUDE_DOCS=OFF
+      -D LLVM_ENABLE_OCAMLDOC=OFF
+      -D LLVM_ENABLE_SPHINX=OFF
+      -D LLVM_ENABLE_DOXYGEN=OFF
+      -D LLVM_ENABLE_BINDINGS=OFF
+      -D LLVM_ENABLE_RUNTIMES=compiler-rt
+      -D LLVM_ENABLE_PROJECTS="clang-tools-extra;clang;lld"
+      -D LLVM_ENABLE_DUMP=ON
+      -Wno-dev
+  )
+
+  cmake "${cmake_args[@]}"
+  pushd "$srcdir"/_build
+  local distribution_components=$(_get_distribution_components | paste -sd\;)
+  popd
+  test -n "$distribution_components"
+  cmake_args+=(-DLLVM_DISTRIBUTION_COMPONENTS="$distribution_components")
+
+  cmake "${cmake_args[@]}"
+  ninja -j"$(nproc)" -C _build
+
+  pushd "$srcdir"/llvm-project/llvm/utils/lit
+  python -m build --wheel --no-isolation
+  popd
+}
+
+_python_optimize() {
+  python -m compileall "$@"
+  python -O -m compileall "$@"
+  python -OO -m compileall "$@"
+}
+
+package() {
+  provides=('llvm' 'llvm-libs' 'libLLVM.so' 'libLTO.so' 'libRemarks.so' 'compiler-rt' 'clang' 'clang-analyzer' 'clang-tools-extra' 'lld')
+  conflicts=('llvm' 'llvm-libs' 'libLLVM.so' 'libLTO.so' 'libRemarks.so' 'compiler-rt' 'clang' 'clang-analyzer' 'clang-tools-extra' 'lld')
+  DESTDIR="$pkgdir" ninja -j"$(nproc)" -C _build install-distribution
+
+  pushd "$srcdir"/llvm-project/llvm/utils/lit
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  popd
+
+  install -d "$pkgdir/usr/lib/bfd-plugins"
+  ln -s ../LLVMgold.so "$pkgdir/usr/lib/bfd-plugins/LLVMgold.so"
+
+  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+  install -d "$pkgdir/$site_packages"
+  mv "$pkgdir"/usr/lib/{libear,libscanbuild} "$pkgdir/$site_packages/"
+  cp -a "$srcdir"/llvm-project/clang/bindings/python/clang "$pkgdir/$site_packages/"
+
+  mv "$pkgdir"/usr/libexec/* "$pkgdir/usr/lib/clang/"
+  rmdir "$pkgdir/usr/libexec"
+  sed -i 's|libexec|lib/clang|' \
+    "$pkgdir/usr/bin/scan-build" \
+    "$pkgdir/$site_packages/libscanbuild/analyze.py"
+
+  _python_optimize "$pkgdir/usr/share" "$pkgdir/$site_packages"
+
+  install -d "$pkgdir/usr/share/bash-completion/completions"
+  mv "$pkgdir/usr/share/clang/bash-autocomplete.sh" "$pkgdir/usr/share/bash-completion/completions/clang"
+}

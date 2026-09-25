@@ -1,0 +1,43 @@
+pkgname=spirv-llvm-translator-git
+pkgver=r2533.c4a6b42
+pkgrel=1
+arch=('x86_64')
+depends=('glibc' 'libstdc++' 'llvm-libs' 'spirv-tools')
+makedepends=('cmake' 'git' 'llvm' 'ninja' 'spirv-headers')
+source=("SPIRV-LLVM-Translator::git+https://github.com/KhronosGroup/SPIRV-LLVM-Translator.git")
+sha512sums=('SKIP')
+
+pkgver() {
+    cd SPIRV-LLVM-Translator
+    printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short=7 HEAD)"
+}
+
+build() {
+  local cmake_options=(
+    -B _build
+    -S SPIRV-LLVM-Translator
+    -G Ninja
+    -D BUILD_SHARED_LIBS=ON
+    -D CMAKE_BUILD_TYPE=Release
+    -D CMAKE_INSTALL_PREFIX=/usr
+    -D CMAKE_INSTALL_SYSCONFDIR=/etc
+    -D CMAKE_POSITION_INDEPENDENT_CODE=ON
+    -D CMAKE_SKIP_RPATH=ON
+    -D LLVM_CONFIG=llvm-config
+    -D LLVM_EXTERNAL_LIT=/usr/bin/lit
+    -D LLVM_EXTERNAL_SPIRV_HEADERS_SOURCE_DIR=/usr/include/spirv
+    -D LLVM_LIBDIR_SUFFIX=
+    -D LLVM_SPIRV_ENABLE_LIBSPIRV_DIS=ON
+    -D LLVM_SPIRV_INCLUDE_TESTS=ON
+    -W no-author
+  )
+
+  cmake "${cmake_options[@]}"
+  cmake --build _build
+}
+
+package() {
+  provides=('spirv-llvm-translator')
+  conflicts=('spirv-llvm-translator')
+  DESTDIR="$pkgdir" cmake --install _build
+}

@@ -1,0 +1,142 @@
+pkgname=rust-git
+pkgver=1.100.0.r340474.g971903d
+pkgrel=1
+arch=('x86_64')
+depends=('bash' 'compiler-rt' 'curl' 'gcc' 'glibc' 'libgcc' 'libgit2' 'libssh2' 'libstdc++' 'lld' 'llvm-libs' 'openssl' 'sqlite' 'zlib' 'libcurl.so' 'libgcc_s.so' 'libgit2.so' 'libsqlite3.so' 'libssh2.so' 'libssl.so')
+makedepends=('git' 'clang' 'cmake' 'libffi' 'llvm' 'ninja' 'perl' 'python' 'rust')
+source=(rust::git+https://github.com/rust-lang/rust.git 0001-bootstrap-Change-libexec-dir.patch 0002-bootstrap-Change-bash-completion-dir.patch 0003-bootstrap-Workaround-for-system-stage0.patch 0004-compiler-Change-LLVM-targets.patch 0005-compiler-Use-ld.lld-by-default.patch 0006-compiler-Use-target-specific-GCC-linkers.patch 0007-compiler-Link-riscv64-musl-statically.patch 0008-compiler-Swap-primary-and-secondary-lib-dirs.patch)
+sha512sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP')
+
+pkgver() {
+  cd rust
+  local _ver="$(cat src/version)"
+  _ver="$(echo $_ver | tr -d '[:space:]')"
+  printf "%s.r%s.g%s" "$_ver" "$(git rev-list --count HEAD)" "$(git rev-parse --short=7 HEAD)"
+}
+
+prepare() {
+  cd rust
+  git submodule init
+  git submodule update
+
+  local src
+  for src in "${source[@]}"; do
+    src="${src%%::*}"
+    src="${src##*/}"
+    src="${src%.zst}"
+    [[ $src = *.patch ]] || continue
+    echo "Applying patch $src..."
+    patch -Np1 < "../$src"
+  done
+
+  cat >bootstrap.toml <<END
+profile = "dist"
+change-id = "ignore"
+
+[llvm]
+download-ci-llvm = false
+link-shared = true
+
+[gcc]
+download-ci-gcc = false
+
+[build]
+target = [
+  "x86_64-unknown-linux-gnu",
+]
+cargo = "$HOME/.cargo/bin/cargo"
+rustc = "$HOME/.cargo/bin/rustc"
+rustfmt = "$HOME/.cargo/bin/rustfmt"
+locked-deps = true
+vendor = false
+tools = [
+  "cargo",
+  "clippy",
+  "rustdoc",
+  "rustfmt",
+  "rust-analyzer-proc-macro-srv",
+  "analysis",
+  "src",
+]
+sanitizers = true
+profiler = true
+docs = false
+
+[install]
+prefix = "/usr"
+
+[rust]
+codegen-units = 1
+codegen-units-std = 1
+debuginfo-level = 0
+debuginfo-level-std = 0
+channel = "nightly"
+rpath = false
+frame-pointers = true
+lld = false
+bootstrap-override-lld = "external"
+llvm-bitcode-linker = false
+deny-warnings = false
+lto = "thin"
+parallel-frontend-threads = 0
+
+[dist]
+compression-formats = ["gz"]
+compression-profile = "fast"
+
+[target.x86_64-unknown-linux-gnu]
+llvm-config = "/usr/bin/llvm-config"
+optimized-compiler-builtins = "/usr/lib/clang/24/lib/x86_64-pc-linux-gnu/libclang_rt.builtins.a"
+END
+}
+
+build() {
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain nightly --no-modify-path -y
+  cd rust
+  local xpy_options=(-j "$(nproc)")
+
+  local profraw="$PWD/build/profiles"
+  mkdir -p "$profraw"
+
+  echo "Building instrumented compiler..."
+  python ./x.py build sysroot "${xpy_options[@]}" \
+    --rust-profile-generate="$profraw"
+
+  echo "Profiling instrumented compiler..."
+  local stage2="$PWD/build/x86_64-unknown-linux-gnu/stage2"
+  LLVM_PROFILE_FILE="$profraw/default_%m_%p.profraw" \
+    LD_LIBRARY_PATH="$stage2/lib" RUSTC="$stage2/bin/rustc" \
+    cargo build --manifest-path=src/tools/cargo/Cargo.toml
+
+  local profdata="$PWD/build/rustc.profdata"
+  llvm-profdata merge -o "$profdata" "$profraw"
+
+  stat -c "Profile data found (%s bytes)" "$profdata"
+  test -s "$profdata"
+
+  echo "Removing instrumented compiler..."
+  rm -r "$profraw" "$stage2"*/
+
+  xpy_options+=(--rust-profile-use="$profdata")
+
+  echo "Building optimized compiler..."
+  DESTDIR="$srcdir/dest-rust" python ./x.py install "${xpy_options[@]}"
+
+  cd ../dest-rust
+  rm -v etc/target-spec-json-schema.json
+  rm -v usr/lib/rustlib/{components,install.log,rust-installer-version,uninstall.sh}
+  rm -v usr/lib/rustlib/manifest-*
+
+  ln -srvft usr/lib usr/lib/rustlib/x86_64-unknown-linux-gnu/lib/*.so
+
+  mkdir -pv usr/lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld
+  ln -srvf  usr/bin/lld          usr/lib/rustlib/x86_64-unknown-linux-gnu/bin/rust-lld
+  ln -srvf  usr/bin/llvm-objcopy usr/lib/rustlib/x86_64-unknown-linux-gnu/bin/rust-objcopy
+  ln -srvft usr/lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld usr/bin/{ld.lld,ld64.lld,lld-link,wasm-ld}
+}
+
+package() {
+  provides=('rust' 'cargo' 'rustfmt' 'rust-src')
+  conflicts=('rust' 'cargo' 'rustfmt' 'rust-src')
+  cp -a dest-rust/* "$pkgdir"
+}

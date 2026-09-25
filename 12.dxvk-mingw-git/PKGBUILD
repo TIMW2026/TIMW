@@ -1,0 +1,72 @@
+pkgname=dxvk-mingw-git
+pkgver=3.1.1.r23.g076922bd2
+pkgrel=1
+arch=('x86_64')
+depends=('vulkan-icd-loader' 'wine' 'bash')
+makedepends=('ninja' 'meson' 'glslang' 'git' 'mingw-w64-gcc')
+source=("git+https://github.com/doitsujin/dxvk.git" "dxvk-extraopts.patch" "setup_dxvk.sh" "setup_dxvk")
+sha512sums=('SKIP' 'SKIP' 'SKIP' 'SKIP')
+
+pkgver() {
+    cd dxvk
+    printf "%s" "$(git describe --long --tags | sed 's/\([^-]*-g\)/r\1/;s/-/./g;s/v//g')"
+}
+
+prepare() {
+    cd dxvk
+    git remote set-url origin https://github.com/doitsujin/dxvk.git
+    git submodule update --init --filter=tree:0 --recursive
+    patch -p1 -i "$srcdir"/dxvk-extraopts.patch
+
+    COMMON_FLAGS="-march=native -mtune=native -O3 -pipe -g0 -mno-avx"
+    COMMON_LDFLAGS="-Wl,-O1,--sort-common,--as-needed -Wl,--file-alignment,4096"
+
+    export CFLAGS="$COMMON_FLAGS -mcmodel=small"
+    export CXXFLAGS="$COMMON_FLAGS -mcmodel=small"
+    export LDFLAGS="$COMMON_LDFLAGS"
+
+    local cross_cflags="$COMMON_FLAGS -mcmodel=small"
+    local cross_cxxflags="$COMMON_FLAGS -mcmodel=small"
+    local cross_ldflags="$COMMON_LDFLAGS"
+    sed -i build-win64.txt \
+        -e "s|@CARGS@|\'${cross_cflags// /\',\'}\'|g" \
+        -e "s|@CXXARGS@|\'${cross_cxxflags// /\',\'}\'|g" \
+        -e "s|@LDARGS@|\'${cross_ldflags// /\',\'}\'|g"
+
+    local cross_cflags="$COMMON_FLAGS -mstackrealign -mpreferred-stack-boundary=2"
+    local cross_cxxflags="$COMMON_FLAGS -mstackrealign -mpreferred-stack-boundary=2"
+    sed -i build-win32.txt \
+        -e "s|@CARGS@|\'${cross_cflags// /\',\'}\'|g" \
+        -e "s|@CXXARGS@|\'${cross_cxxflags// /\',\'}\'|g" \
+        -e "s|@LDARGS@|\'${cross_ldflags// /\',\'}\'|g"
+}
+
+build() {
+    meson setup dxvk "build/x64" \
+        --prefix "/usr/share/dxvk/x64" \
+        --cross-file dxvk/build-win64.txt \
+        --bindir "" --libdir "" \
+        --buildtype "release" \
+        -Db_ndebug=true \
+        --strip
+    ninja -j"$(nproc)" -C "build/x64" -v
+
+    meson setup dxvk "build/x32" \
+        --prefix "/usr/share/dxvk/x32" \
+        --cross-file dxvk/build-win32.txt \
+        --bindir "" --libdir "" \
+        --buildtype "release" \
+        -Db_ndebug=true \
+        --strip
+    ninja -j"$(nproc)" -C "build/x32" -v
+}
+
+package() {
+    provides=('dxvk')
+    conflicts=('dxvk')
+    DESTDIR="$pkgdir" ninja -j"$(nproc)" -C "build/x32" install
+    DESTDIR="$pkgdir" ninja -j"$(nproc)" -C "build/x64" install
+    install -Dm 755 -t "$pkgdir/usr/share/dxvk" setup_dxvk.sh
+    install -Dm 644 -t "$pkgdir/usr/share/dxvk" dxvk/dxvk.conf
+    install -Dm 755 -t "$pkgdir/usr/bin" setup_dxvk
+}

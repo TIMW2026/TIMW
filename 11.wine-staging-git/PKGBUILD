@@ -1,0 +1,63 @@
+pkgname=wine-staging-git
+pkgver=11.18.r0.g7b3fff76fa5
+pkgrel=1
+arch=('x86_64')
+depends=('attr' 'desktop-file-utils' 'fontconfig' 'freetype2' 'glibc' 'libgcc'  'gettext' 'libpcap' 'libunwind' 'libxcursor' 'libxkbcommon' 'libxi' 'libxrandr' 'wayland' 'ntsync-autoload')
+makedepends=('alsa-lib' 'ffmpeg' 'git' 'gnutls' 'gst-plugins-base-libs' 'gtk3' 'libcups' 'libgphoto2' 'libpulse' 'libva' 'libxcomposite' 'libxinerama' 'libxxf86vm' 'mesa' 'mingw-w64-gcc' 'opencl-headers' 'opencl-icd-loader' 'pcsclite' 'perl' 'samba' 'sane' 'sdl2' 'unixodbc' 'v4l-utils' 'vulkan-headers' 'vulkan-icd-loader')
+source=(wine::git+https://gitlab.winehq.org/wine/wine.git wine-staging::git+https://gitlab.winehq.org/wine/wine-staging.git https://dl.winehq.org/wine/wine-gecko/2.47.4/wine-gecko-2.47.4-x86{,_64}.tar.xz https://github.com/madewokherd/wine-mono/releases/download/wine-mono-11.3.0/wine-mono-11.3.0-x86.tar.xz 30-win32-aliases.conf wine-binfmt.conf)
+sha512sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP')
+
+pkgver() {
+  git -C wine describe --long --tags | sed 's/\([^-]*-g\)/r\1/;s/-/./g;s/^wine.//;s/^v//;s/\.rc/rc/'
+}
+
+prepare() {
+  rm -rf _build
+  mkdir _build
+  wine-staging/staging/patchinstall.py DESTDIR="${srcdir}/wine" --all
+}
+
+build() {
+  COMMON_FLAGS="-march=native -mtune=native -O2 -pipe -g0"
+  COMMON_LDFLAGS="-Wl,-O1,--sort-common,--as-needed"
+
+  export CFLAGS="$COMMON_FLAGS -mcmodel=small"
+  export CXXFLAGS="$COMMON_FLAGS -mcmodel=small"
+  export LDFLAGS="$COMMON_LDFLAGS"
+
+  export CROSSCFLAGS="$COMMON_FLAGS"
+  export CROSSCXXFLAGS="$COMMON_FLAGS"
+  export CROSSLDFLAGS="$COMMON_LDFLAGS -Wl,--file-alignment,4096"
+  cd _build
+  ../wine/configure \
+    --prefix=/usr \
+    --libdir=/usr/lib \
+    --disable-tests \
+    --enable-archs=x86_64,i386 \
+    --enable-build-id
+  make -j"$(nproc)"
+}
+
+package() {
+  provides=('wine' 'wine-staging' 'wine-mono' 'wine-gecko')
+  conflicts=('wine' 'wine-staging' 'wine-mono' 'wine-gecko')
+
+  cd _build
+  make prefix="$pkgdir/usr" \
+    libdir="$pkgdir/usr/lib" \
+    dlldir="$pkgdir/usr/lib/wine" install
+
+  install -d "$pkgdir"/usr/share/fontconfig/conf.{avail,default}
+  install -m644 "$srcdir/30-win32-aliases.conf" "$pkgdir/usr/share/fontconfig/conf.avail"
+  ln -s ../conf.avail/30-win32-aliases.conf "$pkgdir/usr/share/fontconfig/conf.default/30-win32-aliases.conf"
+  install -Dm644 "$srcdir/wine-binfmt.conf" "$pkgdir/usr/lib/binfmt.d/wine.conf"
+
+  i686-w64-mingw32-strip --strip-unneeded "$pkgdir"/usr/lib/wine/i386-windows/*.{dll,exe,cpl}
+  x86_64-w64-mingw32-strip --strip-unneeded "$pkgdir"/usr/lib/wine/x86_64-windows/*.{dll,exe,cpl}
+
+  install -d -m755 "$pkgdir"/usr/share/wine/gecko/
+  cp -dr --no-preserve='ownership' "$srcdir"/wine-gecko-2.47.4-x86{,_64} "$pkgdir"/usr/share/wine/gecko/
+
+  install -d -m755 "$pkgdir"/usr/share/wine/mono
+  cp -r -a --no-preserve='ownership' "$srcdir"/wine-mono-11.3.0 "$pkgdir"/usr/share/wine/mono/
+}

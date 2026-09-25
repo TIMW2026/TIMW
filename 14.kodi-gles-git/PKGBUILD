@@ -1,0 +1,95 @@
+pkgname=kodi-gles-git
+pkgver=22.0.r73020.dc86ad8a11b
+pkgrel=1
+arch=('x86_64')
+depends=('bluez-libs' 'curl' 'dav1d' 'desktop-file-utils' 'hicolor-icon-theme' 'fmt' 'lcms2' 'libass' 'libbluray' 'libcdio' 'libcec' 'libmicrohttpd' 'libnfs' 'libpulse' 'libva' 'libvdpau' 'libxslt' 'lirc' 'lzo' 'mariadb-libs' 'mesa' 'libpipewire' 'python-pillow' 'python-pycryptodomex' 'python-simplejson' 'smbclient' 'sndio' 'spdlog' 'sqlite' 'tinyxml' 'taglib' 'libxrandr' 'libxkbcommon' 'waylandpp' 'libinput' 'pcre2' 'tinyxml2' 'libdisplay-info' 'exiv2' 'ffmpeg' 'flatbuffers' 'libdvdcss' 'libdvdnav' 'libdvdread' 'libcrossguid-git' 'libudfread-git' 'fstrcmp')
+makedepends=('cmake' 'doxygen' 'git' 'glew' 'gperf' 'jdk-openjdk' 'libgl' 'libmodplug' 'libmpeg2' 'nasm' 'pipewire' 'python-pybluez' 'swig' 'upower' 'giflib' 'rapidjson' 'ghostscript' 'meson' 'gtest' 'graphviz' 'python-setuptools' 'wayland-protocols' 'nlohmann-json')
+source=("xbmc::git+https://github.com/xbmc/xbmc.git" "crossguid-system-header.patch")
+sha512sums=('SKIP' 'SKIP')
+
+pkgver() {
+  cd xbmc
+  major=$(awk '$1 == "VERSION_MAJOR" { print $2; exit }' version.txt)
+  minor=$(awk '$1 == "VERSION_MINOR" { print $2; exit }' version.txt)
+
+  printf '%s.%s.r%s.%s\n' \
+    "$major" \
+    "$minor" \
+    "$(git rev-list --count HEAD)" \
+    "$(git rev-parse --short HEAD)"
+}
+
+prepare() {
+  [[ -d "$srcdir/kodi-build" ]] && rm -rf "$srcdir/kodi-build"
+  mkdir "$srcdir/kodi-build"
+  cd xbmc
+  patch -Np1 -i "$srcdir"/crossguid-system-header.patch
+  rm -rf system/certs
+}
+
+build() {
+  _cmake_common_args=(
+    -DCMAKE_BUILD_TYPE=Release
+    -DCMAKE_INSTALL_PREFIX=/usr
+    -DCMAKE_INSTALL_LIBDIR=/usr/lib
+    -DENABLE_SSE=ON
+    -DENABLE_SSE2=ON
+    -DENABLE_SSE3=ON
+    -DENABLE_SSSE3=ON
+    -DENABLE_SSE4_1=ON
+    -DENABLE_SSE4_2=ON
+    -DENABLE_AVX=ON
+    -DENABLE_AVX2=ON
+    -DUSE_LTO=ON
+    -DENABLE_LDGOLD=OFF
+    -DENABLE_AIRTUNES=OFF
+    -DENABLE_PLIST=OFF
+    -DENABLE_AVAHI=ON
+    -DENABLE_BLURAY=ON
+    -DENABLE_CEC=ON
+    -DENABLE_DBUS=ON
+    -DENABLE_DVDCSS=ON
+    -DENABLE_EGL=ON
+    -DENABLE_EVENTCLIENTS=ON
+    -DENABLE_MICROHTTPD=ON
+    -DENABLE_MYSQLCLIENT=ON
+    -DENABLE_NFS=ON
+    -DENABLE_OPTICAL=ON
+    -DENABLE_SMBCLIENT=ON
+    -DENABLE_UDEV=ON
+    -DENABLE_UPNP=ON
+    -DENABLE_VAAPI=ON
+    -DENABLE_VDPAU=ON
+    -DENABLE_XSLT=ON
+    -DENABLE_LIRCCLIENT=ON
+    -DENABLE_INTERNAL_RapidJSON=OFF
+    -DENABLE_INTERNAL_FFMPEG=OFF
+    -DENABLE_INTERNAL_CROSSGUID=OFF
+    -DENABLE_INTERNAL_FSTRCMP=OFF
+    -DENABLE_INTERNAL_FLATBUFFERS=OFF
+    -DENABLE_INTERNAL_UDFREAD=OFF
+    -DAPP_RENDER_SYSTEM=gles
+  )
+
+  echo "building kodi"
+  cd kodi-build
+  cmake ${_cmake_common_args[@]} ../xbmc
+  make -j"$(nproc)"
+}
+
+package() {
+  provides=('kodi-gles' 'kodi' 'kodi-common' 'kodi-x11' 'kodi-wayland' 'kodi-gbm')
+  conflicts=('kodi-gles' 'kodi' 'kodi-common' 'kodi-x11' 'kodi-wayland' 'kodi-gbm')
+  _components=('kodi' 'kodi-bin')
+
+  cd kodi-build
+  for _cmp in ${_components[@]}; do
+  DESTDIR="$pkgdir" /usr/bin/cmake \
+    -DCMAKE_INSTALL_COMPONENT="$_cmp" \
+     -P cmake_install.cmake
+  done
+
+  mkdir -p "$pkgdir"/usr/lib/kodi/addons
+  mkdir -p "$pkgdir"/usr/share/kodi/system/certs
+  ln -s /etc/ssl/cert.pem "$pkgdir"/usr/share/kodi/system/certs/cacert.pem
+}

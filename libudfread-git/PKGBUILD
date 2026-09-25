@@ -1,0 +1,25 @@
+pkgname=libudfread-git
+pkgver=1.2.0.71.gb0bc695
+pkgrel=1
+arch=('x86_64')
+depends=('glibc')
+makedepends=('meson' 'ninja' 'git')
+source=("libudfread::git+https://code.videolan.org/videolan/libudfread.git")
+sha512sums=('SKIP')
+
+pkgver() {
+  cd libudfread
+  echo "$(git describe --long --tags | tr - .)"
+}
+
+build() {
+ arch-meson libudfread _build \
+    --libexec=lib
+  ninja -C _build
+}
+
+package() {
+  provides=('libudfread' 'libudfread.so')
+  conflicts=('libudfread')
+  DESTDIR="${pkgdir}" meson install -C _build
+}
