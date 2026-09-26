@@ -2,7 +2,7 @@ pkgname=('linux-next-git' 'linux-next-git-headers')
 pkgver=20260925.r0.gf5f84daefcd9
 pkgrel=1
 arch=('x86_64')
-makedepends=('bc' 'binutils' 'cpio' 'gettext' 'glibc' 'libelf' 'libgcc' 'openssl' 'pahole' 'perl' 'python' 'rust' 'rust-bindgen' 'rust-src' 'tar' 'xxhash' 'xz' 'zlib' 'zstd')
+makedepends=('git' 'bc' 'binutils' 'cpio' 'gettext' 'glibc' 'libelf' 'libgcc' 'openssl' 'pahole' 'perl' 'python' 'rust' 'rust-bindgen' 'rust-src' 'tar' 'xxhash' 'xz' 'zlib' 'zstd')
 source=('linux-next::git+https://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git' 'config.x86_64')
 sha512sums=('SKIP' 'SKIP')
 
