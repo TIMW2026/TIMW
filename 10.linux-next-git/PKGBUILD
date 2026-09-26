@@ -29,7 +29,7 @@ prepare() {
   echo "Setting config..."
   cp ../config.x86_64 .config
   make olddefconfig
-  make nconfig
+  #make nconfig
   diff -u ../config.x86_64 .config || :
 
   make -s kernelrelease > version
