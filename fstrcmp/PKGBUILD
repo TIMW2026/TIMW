@@ -1,0 +1,19 @@
+pkgname=fstrcmp
+pkgver=0.7.D001
+pkgrel=1
+arch=('x86_64')
+depends=('glibc')
+makedepends=('make' 'gcc' 'ghostscript' 'groff' 'libtool')
+source=(http://fstrcmp.sourceforge.net/fstrcmp-${pkgver}.tar.gz)
+sha512sums=('SKIP')
+
+build() {
+  cd fstrcmp-${pkgver}
+  ./configure --prefix=/usr
+  make
+}
+
+package() {
+  cd fstrcmp-${pkgver}
+  make DESTDIR="${pkgdir}" install
+}
