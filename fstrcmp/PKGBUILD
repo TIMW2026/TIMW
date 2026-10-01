@@ -10,10 +10,10 @@ sha512sums=('SKIP')
 build() {
   cd fstrcmp-${pkgver}
   ./configure --prefix=/usr
-  make
+  make -j"$(nproc)"
 }
 
 package() {
   cd fstrcmp-${pkgver}
-  make DESTDIR="${pkgdir}" install
+  make -j"$(nproc)" DESTDIR="${pkgdir}" install
 }
