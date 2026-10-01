@@ -15,7 +15,7 @@ pkgver() {
 build() {
  arch-meson libudfread _build \
     --libexec=lib
-  ninja -C _build
+  ninja -j"$(nproc)" -C _build
 }
 
 package() {
