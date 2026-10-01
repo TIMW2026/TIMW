@@ -13,23 +13,23 @@ build() {
   for tool in gendef genidl genpeimg; do
     mkdir -p "${srcdir}"/${tool}-build && cd "${srcdir}"/${tool}-build
     "${srcdir}"/mingw-w64-v${pkgver}/mingw-w64-tools/${tool}/configure --prefix=/usr
-    make
+    make -j"$(nproc)"
   done
   for _arch in ${_architectures}; do
     mkdir -p "${srcdir}"/widl-${_arch}-build && cd "${srcdir}"/widl-${_arch}-build
     "${srcdir}"/mingw-w64-v${pkgver}/mingw-w64-tools/widl/configure --prefix=/usr --target=${_arch} \
       --program-prefix="${_arch}-"
-    make
+    make -j"$(nproc)"
   done
 }
 
 package() {
   for tool in gendef genidl genpeimg; do
     cd "${srcdir}/${tool}-build"
-    make DESTDIR="${pkgdir}" install
+    make -j"$(nproc)" DESTDIR="${pkgdir}" install
   done
   for _arch in ${_architectures}; do
     cd "${srcdir}/widl-${_arch}-build"
-    make DESTDIR="${pkgdir}" install
+    make -j"$(nproc)" DESTDIR="${pkgdir}" install
   done
 }
