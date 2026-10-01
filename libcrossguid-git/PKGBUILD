@@ -19,7 +19,7 @@ prepare() {
 build() {
   cd libcrossguid
   cmake .
-  make
+  make -j"$(nproc)"
 }
 
 package() {
