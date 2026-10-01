@@ -39,7 +39,7 @@ prepare() {
 build() {
   cd linux-next
   make -j"$(nproc)" all
-  make -C tools/bpf/bpftool vmlinux.h feature-clang-bpf-co-re=1
+  make -j"$(nproc)" -C tools/bpf/bpftool vmlinux.h feature-clang-bpf-co-re=1
 }
 
 package_linux-next-git() {
@@ -55,7 +55,7 @@ package_linux-next-git() {
   echo linux-next | install -Dm644 /dev/stdin "$modulesdir/linux-next"
 
   echo "Installing modules..."
-  ZSTD_CLEVEL=19 make INSTALL_MOD_PATH="$pkgdir/usr" INSTALL_MOD_STRIP=1 \
+  ZSTD_CLEVEL=19 make -j"$(nproc)" INSTALL_MOD_PATH="$pkgdir/usr" INSTALL_MOD_STRIP=1 \
     DEPMOD=/doesnt/exist modules_install
 
   rm "$modulesdir"/build
