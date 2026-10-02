@@ -3,8 +3,8 @@ pkgver=20260925.r0.gf5f84daefcd9
 pkgrel=1
 arch=('x86_64')
 makedepends=('git' 'bc' 'binutils' 'cpio' 'gettext' 'glibc' 'libelf' 'libgcc' 'openssl' 'pahole' 'perl' 'python' 'rust' 'rust-bindgen' 'rust-src' 'tar' 'xxhash' 'xz' 'zlib' 'zstd')
-source=('linux-next::git+https://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git' 'config.x86_64')
-sha512sums=('SKIP' 'SKIP')
+source=('linux-next::git+https://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git' 'config.x86_64' 'opt-level.patch')
+sha512sums=('SKIP' 'SKIP' 'SKIP')
 
 pkgver() {
   cd linux-next
