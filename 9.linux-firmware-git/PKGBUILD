@@ -28,7 +28,8 @@ package() {
   provides=('linux-firmware' 'linux-firmware-whence' 'linux-firmware-other' 'amd-ucode' 'linux-firmware-amdgpu' 'linux-firmware-realtek')
   conflicts=('linux-firmware' 'linux-firmware-whence' 'linux-firmware-other' 'amd-ucode' 'linux-firmware-amdgpu' 'linux-firmware-realtek')
   install -Dm644 amd-ucode.img -t "${pkgdir}/boot"
-  ZSTD_CLEVEL=19 make -j"$(nproc)" -C linux-firmware FIRMWAREDIR="${pkgdir}"/usr/lib/firmware install-zst  rm -rf "${pkgdir}"/usr/lib/firmware/amd{,npu,tee}
+  ZSTD_CLEVEL=19 make -j"$(nproc)" -C linux-firmware FIRMWAREDIR="${pkgdir}"/usr/lib/firmware install-zst
+  rm -rf "${pkgdir}"/usr/lib/firmware/amd{,npu,tee}
   rm -rf "${pkgdir}"/usr/lib/firmware/{ar[0-9]*,ath*,carl9170*,htc_*,qca,wil6210*}
   rm -rf "${pkgdir}"/usr/lib/firmware/{bnx2*,brcm,cypress,tigon}
   rm -rf "${pkgdir}"/usr/lib/firmware/{cirrus,cs42l43*,sdca}
