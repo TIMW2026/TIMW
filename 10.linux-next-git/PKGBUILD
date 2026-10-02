@@ -26,6 +26,16 @@ prepare() {
   echo "-$pkgrel" > localversion.10-pkgrel
   echo linux-next > localversion.20-pkgname
 
+  local src
+  for src in "${source[@]}"; do
+    src="${src%%::*}"
+    src="${src##*/}"
+    src="${src%.zst}"
+    [[ $src = *.patch ]] || continue
+    echo "Applying patch $src..."
+    patch -Np1 < "../$src"
+  done
+
   echo "Setting config..."
   cp ../config.x86_64 .config
   make olddefconfig
