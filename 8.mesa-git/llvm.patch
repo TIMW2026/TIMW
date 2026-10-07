@@ -1,0 +1,44 @@
+diff -uraN mesa/src/amd/llvm/ac_llvm_util.c mesa.new/src/amd/llvm/ac_llvm_util.c
+--- mesa/src/amd/llvm/ac_llvm_util.c	2026-10-07 12:21:41.162614899 +0200
++++ mesa.new/src/amd/llvm/ac_llvm_util.c	2026-10-07 12:23:05.892298514 +0200
+@@ -9,6 +9,7 @@
+ #include <string.h>
+
+ #include <llvm-c/Core.h>
++#include <llvm-c/Target.h>
+ #include <llvm-c/Support.h>
+
+ #include "c11/threads.h"
+@@ -23,7 +24,7 @@
+    LLVMInitializeAMDGPUAsmPrinter();
+
+    /* For inline assembly. */
+-   LLVMInitializeAMDGPUAsmParser();
++   LLVMInitializeAllAsmParsers();
+
+    /* For ACO disassembly. */
+    LLVMInitializeAMDGPUDisassembler();
+
+diff -uraN mesa/src/gallium/drivers/radeonsi/gfx/si_gfx_screen.c mesa.new/src/gallium/drivers/radeonsi/gfx/si_gfx_screen.c
+--- mesa/src/gallium/drivers/radeonsi/gfx/si_gfx_screen.c	2026-10-07 12:32:15.222233055 +0200
++++ mesa.new/src/gallium/drivers/radeonsi/gfx/si_gfx_screen.c	2026-10-07 12:33:30.292728978 +0200
+@@ -18,6 +18,7 @@
+
+ #if AMD_LLVM_AVAILABLE
+ #include <llvm-c/TargetMachine.h>
++#include <llvm-c/Target.h>
+ #endif
+
+ #include <xf86drm.h>
+
+diff -uraN mesa/src/amd/vulkan/radv_physical_device.c mesa.new/src/amd/vulkan/radv_physical_device.c
+--- mesa/src/amd/vulkan/radv_physical_device.c	2026-10-07 12:48:38.027915843 +0200
++++ mesa.new/src/amd/vulkan/radv_physical_device.c	2026-10-07 12:47:42.022793808 +0200
+@@ -45,6 +45,7 @@
+
+ #if AMD_LLVM_AVAILABLE
+ #include <llvm-c/TargetMachine.h>
++#include <llvm-c/Target.h>
+ #endif
+
+ #ifdef _WIN32
