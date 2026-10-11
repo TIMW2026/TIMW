@@ -41,4 +41,5 @@ package() {
   provides=('libclc')
   conflicts=('libclc')
   DESTDIR="${pkgdir}" ninja -j"$(nproc)" -C _build install
+  ln -s spirv64-unknown-unknown/libclc.spv "$pkgdir/usr/share/clc/spirv64-mesa3d-.spv"
 }
