@@ -83,7 +83,7 @@ build() {
     -D valgrind=disabled
     -D video-codecs=all
     -D vulkan-drivers=amd
-    -D vulkan-layers=device-select,anti-lag
+    -D vulkan-layers=device-select
     -D vulkan-loader-rpath=
     -D vulkan-manifest-per-architecture=false
     -D vulkan-beta=true
