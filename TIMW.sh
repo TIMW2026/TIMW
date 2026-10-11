@@ -62,9 +62,9 @@ mv *.pkg.tar.zst ../9.linux-firmware-git/
 
 cd ../9.linux-firmware-git/
 makechrootpkg -c -r "$CHROOT" -I llvm-git*.pkg.tar.zst -I rust-git*.pkg.tar.zst -I rust-bindgen-git*.pkg.tar.zst -I spirv-headers-git*.pkg.tar.zst -I spirv-tools-git*.pkg.tar.zst -I spirv-llvm-translator-git*.pkg.tar.zst -I libclc-git*.pkg.tar.zst -I mesa-git*.pkg.tar.zst
-mv *.pkg.tar.zst ../10.linux-mainline/
+mv *.pkg.tar.zst ../10.linux-git/
 
-cd ../10.linux-mainline/
+cd ../10.linux-git/
 makechrootpkg -c -r "$CHROOT" -I llvm-git*.pkg.tar.zst -I rust-git*.pkg.tar.zst -I rust-bindgen-git*.pkg.tar.zst -I spirv-headers-git*.pkg.tar.zst -I spirv-tools-git*.pkg.tar.zst -I spirv-llvm-translator-git*.pkg.tar.zst -I libclc-git*.pkg.tar.zst -I mesa-git*.pkg.tar.zst -I linux-firmware-git*.pkg.tar.zst
 mv *.pkg.tar.zst ../11.wine-staging-git/
 

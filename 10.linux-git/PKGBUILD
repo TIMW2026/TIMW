@@ -1,11 +1,11 @@
-pkgbase=linux-mainline
-pkgname=('linux-mainline' 'linux-mainline-headers')
-_tag=v7.3-rc6
+pkgbase=linux-git
+pkgname=('linux-git' 'linux-git-headers')
 pkgver=7.3rc6
 pkgrel=1
 arch=('x86_64')
 makedepends=('git' 'bc' 'binutils' 'cpio' 'gettext' 'glibc' 'libelf' 'libgcc' 'openssl' 'pahole' 'perl' 'python' 'rust' 'rust-bindgen' 'rust-src' 'tar' 'xxhash' 'xz' 'zlib' 'zstd')
-source=("$pkgbase::git+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git#tag=$_tag" "config.x86_64" "opt-level.patch" "linux7.3-rc1-ADIOS-3.3.0r2.patch" "linux7.3-rc2-bore-7.0.0.patch")
+_srcname=linux-torvalds
+source=("$_srcname::git+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git" "config.x86_64" "opt-level.patch" "linux7.3-rc1-ADIOS-3.3.0r2.patch" "linux7.3-rc2-bore-7.0.0.patch")
 sha512sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP')
 
 export KBUILD_BUILD_HOST=archlinux
@@ -16,8 +16,17 @@ export CC=clang
 export LD=ld.lld
 export LLVM=1
 
+pkgver() {
+  cd $_srcname
+  if [[ -n "$REMOTE_URL" ]]; then
+    printf "%s" "$(git describe --dirty=-patched --long | sed 's/\([^-]*-\)g/r\1/;s/-/./g' | sed 's/^v//').${REMOTE//[\/-]/.}"
+  else
+    printf "%s" "$(git describe --dirty=-patched --long | sed 's/\([^-]*-\)g/r\1/;s/-/./g' | sed 's/^v//')"
+  fi
+}
+
 prepare() {
-  cd $pkgbase
+  cd $_srcname
 
   echo "Setting version..."
   echo "-$pkgrel" > localversion.10-pkgrel
@@ -44,16 +53,16 @@ prepare() {
 }
 
 build() {
-  cd $pkgbase
+  cd $_srcname
   make -j"$(nproc)" all
   make -j"$(nproc)" -C tools/bpf/bpftool vmlinux.h feature-clang-bpf-co-re=1
 }
 
-package_linux-mainline() {
+package_linux-git() {
   depends=('coreutils' 'initramfs' 'kmod')
   provides=('linux' 'KSMBD-MODULE' 'NTSYNC-MODULE' 'VIRTUALBOX-GUEST-MODULES' 'WIREGUARD-MODULE')
 
-  cd $pkgbase
+  cd $_srcname
   local modulesdir="$pkgdir/usr/lib/modules/$(<version)"
 
   echo "Installing boot image..."
@@ -68,11 +77,11 @@ package_linux-mainline() {
   rm "$modulesdir"/build
 }
 
-package_linux-mainline-headers() {
+package_linux-git-headers() {
   depends=('binutils' 'glibc' 'libelf' 'libgcc' 'openssl' 'pahole' 'xxhash' 'zlib' 'zstd')
   provides=('linux-headers' 'LINUX-HEADERS')
 
-  cd $pkgbase
+  cd $_srcname
   local builddir="$pkgdir/usr/lib/modules/$(<version)/build"
   local karch="x86"
 
