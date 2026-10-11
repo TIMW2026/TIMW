@@ -58,7 +58,7 @@ build() {
   make -j"$(nproc)" -C tools/bpf/bpftool vmlinux.h feature-clang-bpf-co-re=1
 }
 
-package_linux-git-mainline() {
+package_linux-git() {
   depends=('coreutils' 'initramfs' 'kmod')
   provides=('linux' 'KSMBD-MODULE' 'NTSYNC-MODULE' 'VIRTUALBOX-GUEST-MODULES' 'WIREGUARD-MODULE')
 
