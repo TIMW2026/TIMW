@@ -21,11 +21,12 @@ if [[ "$answer" =~ ^[Yy]([Ee][Ss])?$ ]]; then
     sudo cp makepkg.conf "$CHROOT/root/etc"
     sudo cp pacman.conf "$CHROOT/root/etc"
     sudo cp rust.conf "$CHROOT/root/etc/makepkg.conf.d/"
+    arch-nspawn "$CHROOT/root" pacman -Syu llvm-git rust-git rust-bindgen-git spirv-headers-git spirv-tools-git spirv-llvm-translator-git libclc-git mesa-git
 else
     echo "Skipping chroot installation/reinstallation."
 fi
 
-arch-nspawn "$CHROOT/root" pacman -Syu llvm-git rust-git rust-bindgen-git spirv-headers-git spirv-tools-git spirv-llvm-translator-git libclc-git mesa-git
+arch-nspawn "$CHROOT/root" pacman -Syu
 
 cd 1.llvm-git/
 makechrootpkg -c -r "$CHROOT"
