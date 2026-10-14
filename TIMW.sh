@@ -43,6 +43,7 @@ declare -A PACKAGE_DIR=(
 )
 
 declare -A DEPENDS=(
+    [llvm-git]="llvm-git"
     [rust-git]="llvm-git"
     [rust-bindgen-git]="llvm-git rust-git"
     [spirv-headers-git]="llvm-git rust-git rust-bindgen-git"
