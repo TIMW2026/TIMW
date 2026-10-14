@@ -469,7 +469,7 @@ while true; do
         3) build_selected ;;
         4) install_selected ;;
         5) remove_selected ;;
-        6) setup_host
+        6) setup_host ;;
         7) setup_chroot ;;
         8) exit 0 ;;
         *) echo "Invalid choice." ;;
