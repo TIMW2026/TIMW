@@ -56,7 +56,7 @@ declare -A DEPENDS=(
     [wine-staging-git]="llvm-git rust-git rust-bindgen-git spirv-headers-git spirv-tools-git spirv-llvm-translator-git libclc-git mesa-git"
     [dxvk-mingw-git]="llvm-git rust-git rust-bindgen-git spirv-headers-git spirv-tools-git spirv-llvm-translator-git libclc-git mesa-git wine-staging-git"
     [vkd3d-proton-mingw-git]="llvm-git rust-git rust-bindgen-git spirv-headers-git spirv-tools-git spirv-llvm-translator-git libclc-git mesa-git wine-staging-git dxvk-mingw-git mingw-w64-tools"
-    [kodi-gles-git]="llvm-git rust-git rust-bindgen-git spirv-headers-git spirv-tools-git spirv-llvm-translator-git libclc-git mesa-git"
+    [kodi-gles-git]="llvm-git rust-git rust-bindgen-git spirv-headers-git spirv-tools-git spirv-llvm-translator-git libclc-git mesa-git fstrcmp libcrossguid-git libudfread-git"
 )
 
 declare -A CHOSEN=()
