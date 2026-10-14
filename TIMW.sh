@@ -453,24 +453,24 @@ remove_selected() {
 while true; do
     echo
     echo "Package manager menu"
-    echo "1) Update host"
-    echo "2) Update chroot"
-    echo "3) Build selected packages"
-    echo "4) Install packages (TIMW-AUR or Arch repos)"
-    echo "5) Remove packages (host, chroot, or both)"
-    echo "6) Install/reinstall host"
-    echo "7) Install/reinstall chroot"
+    echo "1) Install host"
+    echo "2) Install chroot"
+    echo "3) Update host"
+    echo "4) Update chroot"
+    echo "5) Install packages (TIMW-AUR or Arch repos)"
+    echo "6) Remove packages (host, chroot, or both)"
+    echo "7) Build selected packages"
     echo "8) Exit"
     read -r -p "Choose an option: " choice
 
     case "$choice" in
-        1) update_host ;;
-        2) update_chroot ;;
-        3) build_selected ;;
-        4) install_selected ;;
-        5) remove_selected ;;
-        6) setup_host ;;
-        7) setup_chroot ;;
+        1) setup_host ;;
+        2) setup_chroot ;;
+        3) update_host ;;
+        4) update_chroot ;;
+        5) install_selected ;;
+        6) remove_selected ;;
+        7) build_selected ;;
         8) exit 0 ;;
         *) echo "Invalid choice." ;;
     esac
