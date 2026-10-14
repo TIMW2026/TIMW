@@ -55,7 +55,7 @@ declare -A DEPENDS=(
     [linux-git]="llvm-git rust-git rust-bindgen-git spirv-headers-git spirv-tools-git spirv-llvm-translator-git libclc-git mesa-git linux-firmware-git"
     [wine-staging-git]="llvm-git rust-git rust-bindgen-git spirv-headers-git spirv-tools-git spirv-llvm-translator-git libclc-git mesa-git"
     [dxvk-mingw-git]="llvm-git rust-git rust-bindgen-git spirv-headers-git spirv-tools-git spirv-llvm-translator-git libclc-git mesa-git wine-staging-git"
-    [vkd3d-proton-mingw-git]="llvm-git rust-git rust-bindgen-git spirv-headers-git spirv-tools-git spirv-llvm-translator-git libclc-git mesa-git wine-staging-git dxvk-mingw-git"
+    [vkd3d-proton-mingw-git]="llvm-git rust-git rust-bindgen-git spirv-headers-git spirv-tools-git spirv-llvm-translator-git libclc-git mesa-git wine-staging-git dxvk-mingw-git mingw-w64-tools"
     [kodi-gles-git]="llvm-git rust-git rust-bindgen-git spirv-headers-git spirv-tools-git spirv-llvm-translator-git libclc-git mesa-git"
 )
 
