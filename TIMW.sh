@@ -90,6 +90,21 @@ require_chroot() {
     fi
 }
 
+setup_host() {
+    start_sudo_keepalive
+
+    sudo install -Dm644 "$BASE_DIR/makepkg.conf" \
+        "/etc/makepkg.conf"
+    sudo install -Dm644 "$BASE_DIR/pacman.conf" \
+        "/etc/pacman.conf"
+    sudo install -Dm644 "$BASE_DIR/rust.conf" \
+        "/etc/makepkg.conf.d/rust.conf"
+
+    sudo pacman -Syu
+
+    echo "Host setup complete."
+}
+
 setup_chroot() {
     local answer
 
@@ -443,8 +458,9 @@ while true; do
     echo "3) Build selected packages"
     echo "4) Install packages (TIMW-AUR or Arch repos)"
     echo "5) Remove packages (host, chroot, or both)"
-    echo "6) Install/reinstall chroot"
-    echo "7) Exit"
+    echo "6) Install/reinstall host"
+    echo "7) Install/reinstall chroot"
+    echo "8) Exit"
     read -r -p "Choose an option: " choice
 
     case "$choice" in
@@ -453,8 +469,9 @@ while true; do
         3) build_selected ;;
         4) install_selected ;;
         5) remove_selected ;;
-        6) setup_chroot ;;
-        7) exit 0 ;;
+        6) setup_host
+        7) setup_chroot ;;
+        8) exit 0 ;;
         *) echo "Invalid choice." ;;
     esac
 done
