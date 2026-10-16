@@ -19,6 +19,7 @@ PACKAGES=(
     mesa-git
     linux-firmware-git
     linux-git
+    linux-git-headers
     wine-staging-git
     dxvk-mingw-git
     vkd3d-proton-mingw-git
